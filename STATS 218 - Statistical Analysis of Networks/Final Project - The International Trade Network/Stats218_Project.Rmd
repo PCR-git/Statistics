@@ -1,0 +1,1488 @@
+---
+title: "Stats218_Project"
+author: "Peter Racioppo"
+date: "12/13/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+library(sna)
+library(network)
+# library(networkdata)
+# library(ergm)
+library(tidyverse)
+
+```
+
+```{r eval=TRUE}
+
+trade_data <- read.csv("/Users/peterracioppo/Desktop/Trading_Partners.csv", header=TRUE, stringsAsFactors=FALSE)
+
+```
+
+```{r eval=TRUE}
+
+country <- trade_data$Country
+ord = order(country)
+country_df <- data.frame(country)
+
+population <- trade_data$Population
+population1 <- as.numeric(gsub(",","",population))
+population = population1[ord]
+population_s <- population/max(population)
+
+growth <- trade_data$Growth
+growth1 <- as.numeric(gsub('.{1}$', '', growth))
+growth = growth1[ord]
+growth_s <- growth/max(growth)
+
+GDP = trade_data$GDP
+GDP <- gsub(",","",GDP)
+GDP1 <- as.numeric(str_replace_all(GDP, "[^[:alnum:]]", ""))
+GDP = GDP1[ord]
+GDP_s <- sqrt(GDP)/max(sqrt(GDP))
+
+GDP_per_capita1 = GDP/population
+GDP_per_capita = GDP_per_capita1[ord]
+
+share <- trade_data$Share
+share1 <- as.numeric(gsub('.{1}$', '', share))
+share = share1[ord]
+
+region1 <- trade_data$Location
+region = region1[ord]
+
+print("These fifty countries together account for some ")
+print(sum(share))
+print("percent of the world economy.")
+
+print("These fifty countries together account for some ")
+print(100*sum(population)/(7.6*10^9))
+print("percent of the world population.")
+
+```
+
+```{r eval=TRUE}
+
+f_edges <- function(trade_data,N_c){
+  exports = str_remove_all(trade_data$Export, "[,]")
+  exports = strsplit(exports, " ")
+  export_edges <- array(numeric(),c(50*N_c,2)) 
+  for(i in 1:50){
+    list = unlist(exports[i])
+    for(j in 1:N_c){
+      export_edges[N_c*(i-1)+j,1] <- country[i]
+      export_edges[N_c*(i-1)+j,2] <- list[j]}
+  }
+  
+  imports = str_remove_all(trade_data$Import, "[,]")
+  imports = strsplit(imports, " ")
+  import_edges <- array(numeric(),c(50*N_c,2))
+  for(i in 1:50){
+    list = unlist(imports[i])
+    for(j in 1:N_c){
+      import_edges[N_c*(i-1)+j,1] <- list[j]
+      import_edges[N_c*(i-1)+j,2] <- country[i]}
+  }
+  
+  edges = rbind(export_edges,import_edges)}
+
+```
+
+```{r eval=TRUE}
+
+f_edges2 <- function(trade_data,N_c){
+  exports = str_remove_all(trade_data$Export, "[,]")
+  exports = strsplit(exports, " ")
+  export_edges <- array(numeric(),c(50*N_c,2)) 
+  for(i in 1:50){
+    list = unlist(exports[i])
+    for(j in 1:N_c){
+      export_edges[N_c*(i-1)+j,1] <- country[i]
+      export_edges[N_c*(i-1)+j,2] <- list[j]}
+  }
+  
+  return(export_edges)}
+
+```
+
+```{r eval=TRUE}
+
+f_Edge_vals <- function(trade_data,N_c){
+  exports = str_remove_all(trade_data$Export, "[,]")
+  exports = strsplit(exports, " ")
+  export_edges <- array(numeric(),c(50*N_c,2))
+  for(i in 1:50){
+    list = unlist(exports[i])
+    for(j in 1:N_c){
+      export_edges[N_c*(i-1)+j,1] <- country[i]
+      export_edges[N_c*(i-1)+j,2] <- list[j]}
+  }
+  
+  imports = str_remove_all(trade_data$Import, "[,]")
+  imports = strsplit(imports, " ")
+  import_edges <- array(numeric(),c(50*N_c,2))
+  for(i in 1:50){
+    list = unlist(imports[i])
+    for(j in 1:N_c){
+      import_edges[N_c*(i-1)+j,1] <- list[j]
+      import_edges[N_c*(i-1)+j,2] <- country[i]}
+  }
+  
+  Export_vals = trade_data$Export_vals
+  Export_vals = strsplit(Export_vals, ",")
+  Exports_v <- array(numeric(),c(50*N_c))
+  
+  Import_vals = trade_data$Import_vals
+  Import_vals = strsplit(Import_vals, ",")
+  Imports_v <- array(numeric(),c(50*N_c))
+  
+  for(i in 1:50){
+    list = unlist(Export_vals[i])
+    for(j in 1:N_c){
+      Exports_v[N_c*(i-1)+j] <- as.numeric(list[j])
+    }}
+  
+  for(i in 1:50){
+    list = unlist(Import_vals[i])
+    for(j in 1:N_c){
+      Imports_v[N_c*(i-1)+j] <- as.numeric(list[j])
+    }}
+  
+  Edges_v = c(Exports_v,Imports_v)
+  
+  return(Edges_v)
+}
+
+```
+
+```{r eval=TRUE}
+
+# Get edge vlaues
+Edges_v1 = data.frame(f_Edge_vals(trade_data,1))
+Edges_v2 = data.frame(f_Edge_vals(trade_data,2))
+Edges_v3 = data.frame(f_Edge_vals(trade_data,3))
+Edges_v4 = data.frame(f_Edge_vals(trade_data,4))
+Edges_v5 = data.frame(f_Edge_vals(trade_data,5))
+
+edges1_mat <- f_edges(trade_data,1)
+edges2_mat <- f_edges(trade_data,2)
+edges3_mat <- f_edges(trade_data,3)
+edges4_mat <- f_edges(trade_data,4)
+edges5_mat <- f_edges(trade_data,5)
+
+# edges1_mat = f_edges2(trade_data,1)
+# edges2_mat = f_edges2(trade_data,2)
+# edges3_mat = f_edges2(trade_data,3)
+# edges4_mat = f_edges2(trade_data,4)
+# edges5_mat = f_edges2(trade_data,5)
+
+edges1 = data.frame(edges1_mat)
+edges2 = data.frame(edges2_mat)
+edges3 = data.frame(edges3_mat)
+edges4 = data.frame(edges4_mat)
+edges5 = data.frame(edges5_mat)
+
+# edges1 = distinct(edges1)
+# edges2 = distinct(edges2)
+# edges3 = distinct(edges3)
+# edges4 = distinct(edges4)
+# edges5 = distinct(edges5)
+
+```
+
+```{r eval=TRUE}
+
+tn1 <- as.network(edges1, # the network object
+               directed = TRUE, # specify whether the network is directed
+               loops = FALSE, # do we allow self ties
+               matrix.type = "edgelist") # the type of input
+set.vertex.attribute(tn1,attrname="GDP",value=GDP_s)
+set.vertex.attribute(tn1,attrname="Population",value=population_s)
+set.vertex.attribute(tn1,attrname="Growth",value=growth)
+set.vertex.attribute(tn1,attrname="Region",value=region)
+
+tn2 <- as.network(edges2, # the network object
+               directed = TRUE, # specify whether the network is directed
+               loops = FALSE, # do we allow self ties
+               matrix.type = "edgelist") # the type of input
+set.vertex.attribute(tn2,attrname="GDP",value=GDP_s)
+set.vertex.attribute(tn2,attrname="Population",value=population_s)
+set.vertex.attribute(tn2,attrname="Growth",value=growth)
+set.vertex.attribute(tn2,attrname="Region",value=region)
+
+tn3 <- as.network(edges3, # the network object
+               directed = TRUE, # specify whether the network is directed
+               loops = FALSE, # do we allow self ties
+               matrix.type = "edgelist") # the type of input
+set.vertex.attribute(tn3,attrname="GDP",value=GDP_s)
+set.vertex.attribute(tn3,attrname="Population",value=population_s)
+set.vertex.attribute(tn3,attrname="Growth",value=growth)
+set.vertex.attribute(tn3,attrname="Region",value=region)
+
+tn4 <- as.network(edges4, # the network object
+               directed = TRUE, # specify whether the network is directed
+               loops = FALSE, # do we allow self ties
+               matrix.type = "edgelist") # the type of input
+set.vertex.attribute(tn4,attrname="GDP",value=GDP_s)
+set.vertex.attribute(tn4,attrname="Population",value=population_s)
+set.vertex.attribute(tn4,attrname="Growth",value=growth)
+set.vertex.attribute(tn4,attrname="Region",value=region)
+
+tn5 <- as.network(edges5, # the network object
+               directed = TRUE, # specify whether the network is directed
+               loops = FALSE, # do we allow self ties
+               matrix.type = "edgelist") # the type of input
+set.vertex.attribute(tn5,attrname="GDP",value=GDP_s)
+set.vertex.attribute(tn5,attrname="Population",value=population_s)
+set.vertex.attribute(tn5,attrname="Growth",value=growth)
+set.vertex.attribute(tn5,attrname="Region",value=region)
+
+```
+
+```{r eval=TRUE}
+
+# Set edge values
+set.edge.value(tn1,"Edge",Edges_v1)
+set.edge.value(tn2,"Edge",Edges_v2)
+set.edge.value(tn3,"Edge",Edges_v3)
+set.edge.value(tn4,"Edge",Edges_v4)
+set.edge.value(tn5,"Edge",Edges_v5)
+
+```
+
+```{r eval=TRUE}
+
+# Assign colors to the nodes by region:
+s = (1:50)*0
+for(i in 1:50){
+        x=region[i]
+        if(x=="North America"){
+          s[i] = "blue"
+        }
+        if(x=="Europe"){
+          s[i] = "yellow"
+        }
+        if(x=="Asia"){
+          s[i] = "red"
+        }
+        if(x=="Africa"){
+          s[i] = "lightgreen"
+        }
+        if(x=="South America"){
+          s[i] = "orange"
+        }
+        if(x=="Middle East"){
+          s[i] = "darkgreen"
+        }
+        if(x=="Pacific"){
+          s[i] = "purple"
+        }
+}
+
+```
+
+##############################################################################################################################################################################################
+
+```{r eval=TRUE}
+
+# Network densities:
+network.density(tn1)
+network.density(tn2)
+network.density(tn3)
+network.density(tn4)
+network.density(tn5)
+
+```
+
+```{r eval=TRUE}
+
+plot(tn1, vertex.cex = 5*sqrt(GDP_s), label=network.vertex.names(tn1), vertex.col = s)
+
+plot(tn1, vertex.cex = 5*sqrt(GDP_s), vertex.col = s)
+plot(tn2, vertex.cex = 5*sqrt(GDP_s), vertex.col = s)
+plot(tn3, vertex.cex = 5*sqrt(GDP_s), vertex.col = s)
+plot(tn4, vertex.cex = 5*sqrt(GDP_s), vertex.col = s)
+plot(tn5, vertex.cex = 5*sqrt(GDP_s), vertex.col = s)
+
+```
+For each network, use the **degree()** function in the **sna** package to find the degree sequence.
+
+```{r eval=TRUE}
+
+tn1_deg = degree(tn1,gmode="graph")
+tn2_deg = degree(tn2,gmode="graph")
+tn3_deg = degree(tn3,gmode="graph")
+tn4_deg = degree(tn4,gmode="graph")
+tn5_deg = degree(tn5,gmode="graph")
+
+```
+
+```{r eval=TRUE}
+
+tn1_out = degree(tn1,gmode="digraph",cmode="outdegree") # Get out degree
+tn2_out = degree(tn2,gmode="digraph",cmode="outdegree") # Get out degree
+tn3_out = degree(tn3,gmode="digraph",cmode="outdegree") # Get out degree
+tn4_out = degree(tn4,gmode="digraph",cmode="outdegree") # Get out degree
+tn5_out = degree(tn5,gmode="digraph",cmode="outdegree") # Get out degree
+
+tn1_in = degree(tn1,gmode="digraph",cmode="indegree") # Get in degree
+tn2_in = degree(tn2,gmode="digraph",cmode="indegree") # Get in degree
+tn3_in = degree(tn3,gmode="digraph",cmode="indegree") # Get in degree
+tn4_in = degree(tn4,gmode="digraph",cmode="indegree") # Get in degree
+tn5_in = degree(tn5,gmode="digraph",cmode="indegree") # Get in degree
+
+# tn1_deg = tn1_out + tn1_in
+# tn2_deg = tn2_out + tn2_in
+# tn3_deg = tn3_out + tn3_in
+# tn4_deg = tn4_out + tn4_in
+# tn5_deg = tn5_out + tn5_in
+
+deg_cor1 = cor(tn1_out,tn1_in)
+deg_cor2 = cor(tn1_out,tn2_in)
+deg_cor3 = cor(tn1_out,tn3_in)
+deg_cor4 = cor(tn1_out,tn4_in)
+deg_cor5 = cor(tn1_out,tn5_in)
+
+print(c("Correlation 1 =", deg_cor1))
+print(c("Correlation 2 =", deg_cor2))
+print(c("Correlation 3 =", deg_cor3))
+print(c("Correlation 4 =", deg_cor4))
+print(c("Correlation 5 =", deg_cor5))
+
+```
+
+For each network, summarize the degree sequence using node-level graphical and numerical summaries.
+
+```{r eval=TRUE}
+
+# # Out-degree distributions:
+# barplot(tn1_out,col = s)
+# barplot(tn2_out,col = s)
+# barplot(tn3_out,col = s)
+# barplot(tn4_out,col = s)
+# barplot(tn5_out,col = s)
+
+# Sorted out-degree distributions:
+barplot(rev(sort(tn1_out,index.return = TRUE)$x),col = s[rev(sort(tn1_out,index.return = TRUE)$ix)])
+barplot(rev(sort(tn2_out,index.return = TRUE)$x),col = s[rev(sort(tn2_out,index.return = TRUE)$ix)])
+barplot(rev(sort(tn3_out,index.return = TRUE)$x),col = s[rev(sort(tn3_out,index.return = TRUE)$ix)])
+barplot(rev(sort(tn4_out,index.return = TRUE)$x),col = s[rev(sort(tn4_out,index.return = TRUE)$ix)])
+barplot(rev(sort(tn5_out,index.return = TRUE)$x),col = s[rev(sort(tn5_out,index.return = TRUE)$ix)])
+
+```
+```{r eval=TRUE}
+
+# # In-degree distributions:
+# barplot(tn1_in,col = s)
+# barplot(tn2_in,col = s)
+# barplot(tn3_in,col = s)
+# barplot(tn4_in,col = s)
+# barplot(tn5_in,col = s)
+
+# Sorted in-degree distributions:
+barplot(rev(sort(tn1_in,index.return = TRUE)$x),col = s[rev(sort(tn1_in,index.return = TRUE)$ix)])
+barplot(rev(sort(tn2_in,index.return = TRUE)$x),col = s[rev(sort(tn2_in,index.return = TRUE)$ix)])
+barplot(rev(sort(tn3_in,index.return = TRUE)$x),col = s[rev(sort(tn3_in,index.return = TRUE)$ix)])
+barplot(rev(sort(tn4_in,index.return = TRUE)$x),col = s[rev(sort(tn4_in,index.return = TRUE)$ix)])
+barplot(rev(sort(tn5_in,index.return = TRUE)$x),col = s[rev(sort(tn5_in,index.return = TRUE)$ix)])
+
+```
+```{r eval=TRUE}
+
+# # Degree distributions:
+# barplot(tn1_deg,col = s)
+# barplot(tn2_deg,col = s)
+# barplot(tn3_deg,col = s)
+# barplot(tn4_deg,col = s)
+# barplot(tn5_deg,col = s)
+
+# Sorted degree distributions:
+barplot(rev(sort(tn1_deg,index.return = TRUE)$x),col = s[rev(sort(tn1_deg,index.return = TRUE)$ix)])
+barplot(rev(sort(tn2_deg,index.return = TRUE)$x),col = s[rev(sort(tn2_deg,index.return = TRUE)$ix)])
+barplot(rev(sort(tn3_deg,index.return = TRUE)$x),col = s[rev(sort(tn3_deg,index.return = TRUE)$ix)])
+barplot(rev(sort(tn4_deg,index.return = TRUE)$x),col = s[rev(sort(tn4_deg,index.return = TRUE)$ix)])
+barplot(rev(sort(tn5_deg,index.return = TRUE)$x),col = s[rev(sort(tn5_deg,index.return = TRUE)$ix)])
+
+```
+
+```{r eval=TRUE}
+
+y1 = rev(sort(tn1_deg,index.return = TRUE)$x)
+x = 1:length(y1)
+model <- lm(log(y1)~log(x))
+plot(log(x),log(y1),col = s[rev(sort(tn1_deg,index.return = TRUE)$ix)], pch=16)
+abline(model)
+
+y2 = rev(sort(tn2_deg,index.return = TRUE)$x)
+model <- lm(log(y2)~log(x))
+plot(log(x),log(y2),col = s[rev(sort(tn2_deg,index.return = TRUE)$ix)], pch=16)
+abline(model)
+
+y3 = rev(sort(tn3_deg,index.return = TRUE)$x)
+model <- lm(log(y3)~log(x))
+plot(log(x),log(y3),col = s[rev(sort(tn3_deg,index.return = TRUE)$ix)], pch=16)
+abline(model)
+
+y4 = rev(sort(tn4_deg,index.return = TRUE)$x)
+model <- lm(log(y4)~log(x))
+plot(log(x),log(y4),col = s[rev(sort(tn4_deg,index.return = TRUE)$ix)], pch=16)
+abline(model)
+
+y5 = rev(sort(tn5_deg,index.return = TRUE)$x)
+model <- lm(log(y5)~log(x))
+plot(log(x),log(y5),col = s[rev(sort(tn5_deg,index.return = TRUE)$ix)], pch=16)
+abline(model)
+
+######
+
+x = 1:length(y1)
+y5 = rev(sort(tn5_out,index.return = TRUE)$x)
+model <- lm(log(y5)~log(x))
+plot(log(x),log(y5),col = s[rev(sort(tn5_out,index.return = TRUE)$ix)], pch=16)
+abline(model)
+
+x = 1:length(y1)
+y5 = rev(sort(tn5_in,index.return = TRUE)$x)
+model <- lm(log(y5)~log(x))
+plot(log(x),log(y5),col = s[rev(sort(tn5_in,index.return = TRUE)$ix)], pch=16)
+abline(model)
+
+```
+
+```{r eval=TRUE}
+
+# Graphs with node sizes scaled by out degrees
+gplot(tn1, vertex.cex=(tn1_out), vertex.sides=50, vertex.col = s)
+gplot(tn2, vertex.cex=(tn2_out), vertex.sides=50, vertex.col = s)
+gplot(tn3, vertex.cex=(tn3_out), vertex.sides=50, vertex.col = s)
+gplot(tn4, vertex.cex=(tn4_out), vertex.sides=50, vertex.col = s)
+gplot(tn5, vertex.cex=(tn5_out), vertex.sides=50, vertex.col = s)
+
+```
+```{r eval=TRUE}
+
+# Graphs with node sizes scaled by in degrees
+gplot(tn1, vertex.cex=(tn1_in)/3, vertex.sides=50, vertex.col = s)
+gplot(tn2, vertex.cex=(tn2_in)/4, vertex.sides=50, vertex.col = s)
+gplot(tn3, vertex.cex=(tn3_in)/5, vertex.sides=50, vertex.col = s)
+gplot(tn4, vertex.cex=(tn4_in)/6, vertex.sides=50, vertex.col = s)
+gplot(tn5, vertex.cex=(tn5_in)/7, vertex.sides=50, vertex.col = s)
+
+```
+
+```{r eval=TRUE}
+
+# Graphs with node sizes scaled by degrees
+gplot(tn1, vertex.cex=sqrt(tn1_deg), vertex.sides=50,vertex.col = s)
+gplot(tn2, vertex.cex=sqrt(tn2_deg), vertex.sides=50,vertex.col = s)
+gplot(tn3, vertex.cex=sqrt(tn3_deg), vertex.sides=50,vertex.col = s)
+gplot(tn4, vertex.cex=sqrt(tn4_deg), vertex.sides=50,vertex.col = s)
+gplot(tn5, vertex.cex=sqrt(tn5_deg), vertex.sides=50,vertex.col = s)
+
+gplot(tn2, vertex.cex=(tn2_deg)/4, vertex.sides=50,vertex.col = s,label=network.vertex.names(tn2))
+gplot(tn5, vertex.cex=(tn5_deg)/7, vertex.sides=50,vertex.col = s,label=network.vertex.names(tn5))
+
+```
+
+For each network, compute the eigenvalue centrality of each node. For each network, summarize the centralities using node-level graphical and numerical summaries.
+
+```{r eval=TRUE}
+
+tn1_ev = evcent(tn1, g=1, gmode="graph")
+tn2_ev = evcent(tn2, g=1, gmode="graph")
+tn3_ev = evcent(tn3, g=1, gmode="graph")
+tn4_ev = evcent(tn4, g=1, gmode="graph")
+tn5_ev = evcent(tn5, g=1, gmode="graph")
+
+# Plot bar graphs of centrality
+# barplot(tn1_ev,col = s)
+# barplot(tn2_ev,col = s)
+# barplot(tn3_ev,col = s)
+# barplot(tn4_ev,col = s)
+# barplot(tn5_ev,col = s)
+
+barplot(rev(sort(tn1_ev,index.return = TRUE)$x),col = s[rev(sort(tn1_ev,index.return = TRUE)$ix)])
+barplot(rev(sort(tn2_ev,index.return = TRUE)$x),col = s[rev(sort(tn2_ev,index.return = TRUE)$ix)])
+barplot(rev(sort(tn3_ev,index.return = TRUE)$x),col = s[rev(sort(tn3_ev,index.return = TRUE)$ix)])
+barplot(rev(sort(tn4_ev,index.return = TRUE)$x),col = s[rev(sort(tn4_ev,index.return = TRUE)$ix)])
+barplot(rev(sort(tn5_ev,index.return = TRUE)$x),col = s[rev(sort(tn5_ev,index.return = TRUE)$ix)])
+
+# Graphs with node sizes scaled by centrality
+gplot(tn1, vertex.cex=sqrt(tn1_ev)*10, vertex.sides=50, vertex.col = s)
+gplot(tn2, vertex.cex=sqrt(tn2_ev)*10, vertex.sides=50, vertex.col = s)
+gplot(tn3, vertex.cex=sqrt(tn3_ev)*10, vertex.sides=50, vertex.col = s)
+gplot(tn4, vertex.cex=sqrt(tn4_ev)*10, vertex.sides=50, vertex.col = s)
+gplot(tn5, vertex.cex=sqrt(tn5_ev)*10, vertex.sides=50, vertex.col = s)
+
+```
+For each network, compute the closeness centrality of each node. 
+
+```{r eval=TRUE}
+
+tn1_close= closeness(tn1,g=1, gmode="graph")
+tn2_close= closeness(tn2,g=1, gmode="graph")
+tn3_close= closeness(tn3,g=1, gmode="graph")
+tn4_close= closeness(tn4,g=1, gmode="graph")
+tn5_close= closeness(tn5,g=1, gmode="graph")
+
+# Plot bar graphs of closeness
+# barplot(tn1_close, col = s)
+# barplot(tn2_close, col = s)
+# barplot(tn3_close, col = s)
+# barplot(tn4_close, col = s)
+# barplot(tn5_close, col = s)
+
+barplot(rev(sort(tn1_close,index.return = TRUE)$x),col = s[rev(sort(tn1_close,index.return = TRUE)$ix)])
+barplot(rev(sort(tn2_close,index.return = TRUE)$x),col = s[rev(sort(tn2_close,index.return = TRUE)$ix)])
+barplot(rev(sort(tn3_close,index.return = TRUE)$x),col = s[rev(sort(tn3_close,index.return = TRUE)$ix)])
+barplot(rev(sort(tn4_close,index.return = TRUE)$x),col = s[rev(sort(tn4_close,index.return = TRUE)$ix)])
+barplot(rev(sort(tn5_close,index.return = TRUE)$x),col = s[rev(sort(tn5_close,index.return = TRUE)$ix)])
+
+# Graphs with node sizes scaled by closeness
+gplot(tn1, vertex.cex=sqrt(tn1_close)*5, vertex.sides=50, vertex.col = s)
+gplot(tn2, vertex.cex=sqrt(tn2_close)*5, vertex.sides=50, vertex.col = s)
+gplot(tn3, vertex.cex=sqrt(tn3_close)*5, vertex.sides=50, vertex.col = s)
+gplot(tn4, vertex.cex=sqrt(tn4_close)*5, vertex.sides=50, vertex.col = s)
+gplot(tn5, vertex.cex=sqrt(tn5_close)*5, vertex.sides=50, vertex.col = s)
+
+```
+
+For each network, compute the betweenness centrality of each node. For each network, summarize the centralities using node-level graphical and numerical summaries.
+
+```{r eval=TRUE}
+
+tn1_btwn = betweenness(tn1,g=1, gmode="graph")
+tn2_btwn = betweenness(tn2,g=1, gmode="graph")
+tn3_btwn = betweenness(tn3,g=1, gmode="graph")
+tn4_btwn = betweenness(tn4,g=1, gmode="graph")
+tn5_btwn = betweenness(tn5,g=1, gmode="graph")
+
+# Plot bar graphs of betweenness
+# barplot(tn1_btwn, col = s)
+# barplot(tn2_btwn, col = s)
+# barplot(tn3_btwn, col = s)
+# barplot(tn4_btwn, col = s)
+# barplot(tn5_btwn, col = s)
+
+barplot(rev(sort(tn1_btwn,index.return = TRUE)$x),col = s[rev(sort(tn1_btwn,index.return = TRUE)$ix)])
+barplot(rev(sort(tn2_btwn,index.return = TRUE)$x),col = s[rev(sort(tn2_btwn,index.return = TRUE)$ix)])
+barplot(rev(sort(tn3_btwn,index.return = TRUE)$x),col = s[rev(sort(tn3_btwn,index.return = TRUE)$ix)])
+barplot(rev(sort(tn4_btwn,index.return = TRUE)$x),col = s[rev(sort(tn4_btwn,index.return = TRUE)$ix)])
+barplot(rev(sort(tn5_btwn,index.return = TRUE)$x),col = s[rev(sort(tn5_btwn,index.return = TRUE)$ix)])
+
+# Graphs with node sizes scaled by betweenness
+gplot(tn1, vertex.cex=sqrt(tn1_btwn)/2, vertex.sides=50, vertex.col = s)
+gplot(tn2, vertex.cex=sqrt(tn2_btwn)/2, vertex.sides=50, vertex.col = s)
+gplot(tn3, vertex.cex=sqrt(tn3_btwn)/2, vertex.sides=50, vertex.col = s)
+gplot(tn4, vertex.cex=sqrt(tn4_btwn)/2, vertex.sides=50, vertex.col = s)
+gplot(tn5, vertex.cex=sqrt(tn5_btwn)/2, vertex.sides=50, vertex.col = s)
+
+```
+
+```{r eval=TRUE}
+
+tn1_d = delete.vertices(tn1, c(9,16,49))
+tn2_d = delete.vertices(tn2, c(9,16,49))
+tn3_d = delete.vertices(tn3, c(9,16,49))
+tn4_d = delete.vertices(tn4, c(9,16,49))
+tn5_d = delete.vertices(tn5, c(9,16,49))
+
+countryord = country[ord]
+country_d = c(countryord[1:8],countryord[10:15],countryord[17:48],countryord[50])
+GDP_d = c(GDP_s[1:8],GDP_s[10:15],GDP_s[17:48],GDP_s[50])
+s_d = c(s[1:8],s[10:15],s[17:48],s[50])
+
+gplot(tn1_d, vertex.cex=sqrt(GDP_d)*5, vertex.sides=50, vertex.col = s_d)
+gplot(tn2_d, vertex.cex=sqrt(GDP_d)*5, vertex.sides=50, vertex.col = s_d)
+gplot(tn3_d, vertex.cex=sqrt(GDP_d)*5, vertex.sides=50, vertex.col = s_d)
+gplot(tn4_d, vertex.cex=sqrt(GDP_d)*5, vertex.sides=50, vertex.col = s_d)
+gplot(tn5_d, vertex.cex=sqrt(GDP_d)*5, vertex.sides=50, vertex.col = s_d)
+
+```
+
+```{r eval=TRUE}
+
+library(igraph)
+
+g1 = graph_from_edgelist(edges1_mat,directed=TRUE)
+g2 = graph_from_edgelist(edges2_mat,directed=TRUE)
+g3 = graph_from_edgelist(edges3_mat,directed=TRUE)
+g4 = graph_from_edgelist(edges4_mat,directed=TRUE)
+g5 = graph_from_edgelist(edges5_mat,directed=TRUE)
+
+E(g1)$weight <- as.list((Edges_v1*100))[[1]]
+E(g2)$weight <-Edges_v2*100
+E(g3)$weight <-Edges_v3*100
+E(g4)$weight <-Edges_v4*100
+E(g5)$weight <-Edges_v5*100
+
+vertex_connectivity(g1)
+vertex_connectivity(g2)
+vertex_connectivity(g3)
+vertex_connectivity(g4)
+vertex_connectivity(g5)
+
+edge_connectivity(g1)
+edge_connectivity(g2)
+edge_connectivity(g3)
+edge_connectivity(g4)
+edge_connectivity(g5)
+
+w = 1+as.list((Edges_v1*100))[[1]]/3000
+
+plot(g1,edge.width=w,edge.arrow.size = 0.2,layout = layout_with_graphopt)
+
+```
+
+```{r eval=TRUE}
+
+library(intergraph)
+
+# adj1_g <- get.adjacency(g1)
+# adj2_g <- get.adjacency(g2)
+# adj3_g <- get.adjacency(g3)
+# adj4_g <- get.adjacency(g4)
+# adj5_g <- get.adjacency(g5)
+
+net1 <- asNetwork(g1)
+net2 <- asNetwork(g2)
+net3 <- asNetwork(g3)
+net4 <- asNetwork(g4)
+net5 <- asNetwork(g5)
+
+```
+
+```{r eval=TRUE}
+
+# Eccentricity:
+tn1_ecc = eccentricity(g1)
+barplot(tn1_ecc)
+# V(g1)
+
+# The minimum-eccentricity countries are the US and Bangladesh.
+# The maximum-eccentricity countries are Argentina and Portugal.
+
+tn2_ecc = eccentricity(g2)
+barplot(tn2_ecc)
+
+tn3_ecc = eccentricity(g3)
+barplot(tn3_ecc)
+
+tn4_ecc = eccentricity(g4)
+barplot(tn4_ecc)
+
+tn5_ecc = eccentricity(g5)
+barplot(tn5_ecc)
+
+print("Network diameter = ")
+print(max(tn1_ecc))
+
+```
+
+Assortativity:
+
+```{r eval=TRUE}
+
+# Computes degree correlation:
+f_corr <- function(g) {
+        el = get.edgelist(g)
+        d1 = degree(g,el[,1])
+        d2 = degree(g,el[,2])
+        if(sd(c(d1,d2)) == 0){return(1)}
+        corr = cor(d1,d2,method="pearson")
+        return(corr)}
+
+print("The degree correlation is:")
+f_corr(g1)
+f_corr(g2)
+f_corr(g3)
+f_corr(g4)
+f_corr(g5)
+
+```
+
+The networks are disassortative. That is, nodes of high degree tend to connect to nodes of lower degree.
+
+Fit degree distribution models using the **degreenet** package. Fit the Yule, Waring, Poisson, and Conway-Maxwell-Poisson models.
+
+```{r eval=TRUE}
+
+library(degreenet)
+
+f_deg_distrb <- function(deg) {
+  # Fit models
+  pareto = adpmle(deg)
+  yule = ayulemle(deg)
+  waring = awarmle(deg)
+  poisson = apoimle(deg)
+  cmp = acmpmle(deg)
+  
+  # Compute AIC/BICs
+  pareto_ll = lldpall(pareto$theta,deg)
+  yule_ll = lldpall(yule$theta,deg)
+  waring_ll = lldpall(waring$theta[1],deg)
+  poisson_ll = lldpall(poisson$theta,deg)
+  cmp_ll = lldpall(cmp$theta[1],deg)
+  
+  # Get AIC/BICs
+  pareto_AIC = pareto_ll[3]
+  pareto_BIC = pareto_ll[4]
+  yule_AIC = yule_ll[3]
+  yule_BIC = yule_ll[4]
+  waring_AIC = waring_ll[3]
+  waring_BIC = waring_ll[4]
+  poisson_AIC = poisson_ll[3]
+  poisson_BIC = poisson_ll[4]
+  cmp_AIC = cmp_ll[3]
+  cmp_BIC = cmp_ll[4]
+  
+  # Create table
+  AIC = c(pareto_AIC,yule_AIC,waring_AIC,poisson_AIC,cmp_AIC)
+  BIC = c(pareto_BIC,yule_BIC,waring_BIC,poisson_BIC,cmp_BIC)
+  table = rbind(AIC,BIC)
+  print("")
+  colnames(table) <- c("Pareto","Yule","Waring","Poisson","CMP")
+  print(table)
+  
+  # Which model has minimum AIC/BIC
+  print(which.min(AIC))
+  print(which.min(BIC))}
+
+```
+```{r eval=TRUE}
+
+f_deg_distrb(tn1_deg)
+f_deg_distrb(tn2_deg)
+f_deg_distrb(tn3_deg)
+f_deg_distrb(tn4_deg)
+f_deg_distrb(tn5_deg)
+
+```
+
+```{r eval=TRUE}
+
+# Average distance:
+d1= mean_distance(g1, directed = TRUE)
+d2= mean_distance(g2, directed = TRUE)
+d3= mean_distance(g3, directed = TRUE)
+d4= mean_distance(g4, directed = TRUE)
+d5= mean_distance(g5, directed = TRUE)
+
+print(d1)
+print(d2)
+print(d3)
+print(d4)
+print(d5)
+
+```
+
+```{r eval=TRUE}
+
+# Page Rank
+pr1 = rev(sort(page_rank(g1)$vector))
+pr2 = rev(sort(page_rank(g2)$vector))
+pr3 = rev(sort(page_rank(g3)$vector))
+pr4 = rev(sort(page_rank(g4)$vector))
+pr5 = rev(sort(page_rank(g5)$vector))
+
+barplot(pr1)
+barplot(pr2)
+barplot(pr3)
+barplot(pr4)
+barplot(pr5)
+
+```
+
+```{r eval=TRUE}
+
+# Clustering coefficient:
+clust1 = transitivity(g1, type = "local")
+ix1 = rev(sort(clust1,index.return = TRUE)$ix)
+V(g1)[ix1]
+plot(rev(sort(clust1)))
+
+clust2 = transitivity(g2, type = "local")
+ix2 = rev(sort(clust2,index.return = TRUE)$ix)
+V(g2)[ix2]
+plot(rev(sort(clust2)))
+
+clust5 = transitivity(g5, type = "local")
+ix5 = rev(sort(clust5,index.return = TRUE)$ix)
+V(g5)[ix5]
+plot(rev(sort(clust5)))
+
+```
+```{r eval=TRUE}
+
+# Minimum spanning trees:
+mst1 = mst(g1)
+mst2 = mst(g2)
+mst3 = mst(g3)
+mst4 = mst(g4)
+mst5 = mst(g5)
+
+plot(mst1)
+plot(mst2)
+plot(mst3)
+plot(mst4)
+plot(mst5)
+
+```
+
+```{r eval=TRUE}
+
+geo_dist = distances(g1)
+geo_v = as.vector(geo_dist)
+
+# Histogram of geodesic distances:
+hist(geo_v,main="Geodesic Distance",xlab="Geodesic Distance")
+
+N_t = (dim(geo_dist)[1]**2 - dim(geo_dist)[1])/2 # Number of vertex pairs, excluding self-loops
+unreachable = sum(geo_dist == Inf)/2 # Number of pairs of vertices which are unreachable from each other
+reachable = N_t - unreachable # Number of pairs which are reachable from each other
+prop_reach = reachable/N_t # Proportion of reachable pairs
+print(c("The proportion of node-pairs which are reachable from each other is",round(prop_reach,4)))
+
+reachable_geo = geo_v[geo_v != Inf] # Set of reachable pairs of nodes
+reachable_geo = reachable_geo[reachable_geo != 0] # Remove self loops
+mean_geo = mean(reachable_geo) # Mean geodesic distance among reachable nodes
+print(c("The mean geodesic distance for the reachable pairs is",round(mean_geo,4)))
+
+isoM = (geo_dist == Inf) # Indicator matrix of unreachable nodes
+L = dim(geo_dist)[1]-1 # Matrix dimension - 1 
+N_isolates = sum((colSums(isoM) == L)) # Column sum of indicator matrix gives the total number of isolates
+print(c("There are",N_isolates,"isolates."))
+
+```
+```{r eval=TRUE}
+
+e_btwn1 = edge_betweenness(g1)
+barplot(e_btwn1, names.arg=E(g1))
+eb1 = rev(sort(e_btwn1,index.return = TRUE)$ix)
+print("The edges with highest edge-betweenness are:")
+E(g1)[eb1[1]]
+E(g1)[eb1[2]]
+E(g1)[eb1[3]]
+E(g1)[eb1[4]]
+
+e_btwn2 = edge_betweenness(g2)
+barplot(e_btwn2, names.arg=E(g2))
+eb2 = rev(sort(e_btwn2,index.return = TRUE)$ix)
+print("The edges with highest edge-betweenness are:")
+E(g2)[eb2[1]]
+E(g2)[eb2[2]]
+E(g2)[eb2[3]]
+E(g2)[eb2[4]]
+
+e_btwn3 = edge_betweenness(g3)
+barplot(e_btwn3, names.arg=E(g3))
+eb3 = rev(sort(e_btwn3,index.return = TRUE)$ix)
+print("The edges with highest edge-betweenness are:")
+E(g3)[eb3[1]]
+E(g3)[eb3[2]]
+E(g3)[eb3[3]]
+E(g3)[eb3[4]]
+
+e_btwn4 = edge_betweenness(g4)
+barplot(e_btwn4, names.arg=E(g4))
+eb4 = rev(sort(e_btwn4,index.return = TRUE)$ix)
+print("The edges with highest edge-betweenness are:")
+E(g4)[eb4[1]]
+E(g4)[eb4[2]]
+E(g4)[eb4[3]]
+E(g4)[eb4[4]]
+
+e_btwn5 = edge_betweenness(g5)
+barplot(e_btwn5, names.arg=E(g5))
+eb5 = rev(sort(e_btwn5,index.return = TRUE)$ix)
+print("The edges with highest edge-betweenness are:")
+E(g5)[eb5[1]]
+E(g5)[eb5[2]]
+E(g5)[eb5[3]]
+E(g5)[eb5[4]]
+
+```
+```{r eval=TRUE}
+
+# Common Neighbors:
+
+# US = 1; China = 3; Germany = 5
+US_n1 = neighborhood(g1,nodes=1)[[1]]
+China_n1 = neighborhood(g1,nodes=3)[[1]]
+Germany_n1 = neighborhood(g1,nodes=5)[[1]]
+CN_US_China_1 = V(g1)[intersect(US_n1,China_n1)] # India, Pakistan
+CN_US_Germany_1 = V(g1)[intersect(US_n1,Germany_n1)] # UK
+CN_China_Germany_1 = V(g1)[intersect(China_n1,Germany_n1)] # US, Bangladesh
+
+# US = 1; China = 4; Germany = 8
+US_n3 = neighborhood(g3,nodes=1)[[1]]
+China_n3 = neighborhood(g3,nodes=4)[[1]]
+Germany_n3 = neighborhood(g3,nodes=8)[[1]]
+CN_US_China_3 = V(g3)[intersect(US_n3,China_n3)]
+CN_US_Germany_3 = V(g3)[intersect(US_n3,Germany_n3)]
+CN_China_Germany_3 = V(g3)[intersect(China_n3,Germany_n3)]
+
+# US = 1; China = 4; Germany = 5
+US_n5 = neighborhood(g5,nodes=1)[[1]]
+China_n5 = neighborhood(g5,nodes=4)[[1]]
+Germany_n5 = neighborhood(g5,nodes=8)[[1]]
+CN_US_China_5 = V(g5)[intersect(US_n5,China_n5)]
+CN_US_Germany_5 = V(g5)[intersect(US_n5,Germany_n5)]
+CN_China_Germany_5 = V(g5)[intersect(China_n5,Germany_n5)]
+
+```
+
+```{r eval=TRUE}
+
+# Jaccard Measure:
+
+print("Jaccard Measure in top trading partner network:")
+Jaccard_US_China1 = length(CN_US_China_1)/length(unique(append(US_n1,China_n1)))
+Jaccard_US_Germany1 = length(CN_US_Germany_1)/length(unique(append(US_n1,Germany_n1)))
+Jaccard_China_Germany1 = length(CN_China_Germany_1)/length(unique(append(China_n1,Germany_n1)))
+print(Jaccard_US_China1)
+print(Jaccard_US_Germany1)
+print(Jaccard_China_Germany1)
+
+print("Jaccard Measure in top 3 trading partners network:")
+Jaccard_US_China3 = length(CN_US_China_3)/length(unique(append(US_n3,China_n3)))
+Jaccard_US_Germany3 = length(CN_US_Germany_3)/length(unique(append(US_n3,Germany_n3)))
+Jaccard_China_Germany3 = length(CN_China_Germany_3)/length(unique(append(China_n3,Germany_n3)))
+print(Jaccard_US_China3)
+print(Jaccard_US_Germany3)
+print(Jaccard_China_Germany3)
+
+print("Jaccard Measure in top 5 trading partners network:")
+Jaccard_US_China5 = length(CN_US_China_5)/length(unique(append(US_n5,China_n5)))
+Jaccard_US_Germany5 = length(CN_US_Germany_5)/length(unique(append(US_n5,Germany_n5)))
+Jaccard_China_Germany5 = length(CN_China_Germany_5)/length(unique(append(China_n5,Germany_n5)))
+print(Jaccard_US_China5)
+print(Jaccard_US_Germany5)
+print(Jaccard_China_Germany5)
+
+```
+
+##############################################################################################################################################################################################
+
+Clustering Algorithms:
+
+Fast-greedy algorithm:
+```{r eval=TRUE}
+
+# Get adjacency matrices
+adj1 = matrix(as.matrix.network.adjacency(tn1),nrow = 50)
+adj2 = matrix(as.matrix.network.adjacency(tn2),nrow = 50)
+adj3 = matrix(as.matrix.network.adjacency(tn3),nrow = 50)
+adj4 = matrix(as.matrix.network.adjacency(tn4),nrow = 50)
+adj5 = matrix(as.matrix.network.adjacency(tn5),nrow = 50)
+
+# Adjacency matrices of undirected networks
+adj1u = ((adj1+t(adj1))>0)*1
+adj2u = ((adj2+t(adj2))>0)*1
+adj3u = ((adj3+t(adj3))>0)*1
+adj4u = ((adj4+t(adj4))>0)*1
+adj5u = ((adj5+t(adj5))>0)*1
+
+```
+
+```{r eval=TRUE}
+
+df1 <- data.frame(matrix(adj1,nrow=1))
+# df2 <- data.frame(adj2)
+# df3 <- data.frame(adj3)
+# df4 <- data.frame(adj4)
+# df5 <- data.frame(adj5)
+
+write.csv(df1,"/Users/peterracioppo/Desktop/adj1.csv", row.names = FALSE)
+
+```
+
+```{r eval=TRUE}
+
+f_Fast_Greedy <- function(adju,g,country) {
+  gu = graph_from_adjacency_matrix(adju,mode="undirected")
+  
+  # Fast-greedy algorithm for clustering:
+  n = dim(adju)[1]
+  cfg = cluster_fast_greedy(gu)
+  m = cfg$membership
+  adj_c = matrix(0,n,n)
+  for(i in 1:n){
+    for(j in 1:n){
+      if(m[i] == m[j]){
+        adj_c[i,j] = adju[i,j]
+      }
+    }
+  }
+  
+  g_c = graph_from_adjacency_matrix(adj_c,mode="undirected")
+  vertex_attr(g_c, "label") <- country[ord]
+  plot(g_c,labels=V(g))
+}
+
+```
+
+```{r eval=TRUE}
+
+f_Fast_Greedy(adj1u,g1,country)
+f_Fast_Greedy(adj2u,g2,country)
+f_Fast_Greedy(adj3u,g3,country)
+f_Fast_Greedy(adj4u,g4,country)
+f_Fast_Greedy(adj5u,g5,country)
+
+```
+
+```{r eval=TRUE}
+
+detach("package:igraph", unload=TRUE)
+
+```
+
+Markov Clustering:
+
+```{r eval=TRUE}
+
+# This function normalizes the columns of a matrix A
+f_Normalize <- function(A) {
+    M <- A/colSums(A)
+    return(M)}
+
+```
+
+```{r eval=TRUE}
+
+library(matrixcalc)
+# Expansion operation in MCL algorithm:
+# Here, we compute M^e.
+f_Expansion <- function(M,e) {
+    return(M%*%M)
+    # return(matrix.power(M, e))
+  }
+
+```
+
+```{r eval=TRUE}
+
+# Inflation operation in MCL algorithm:
+# Here, we take each element in M to the rth power
+# and then renormalize the columns. The effect of
+# this operation is to weaken the weak connections
+# and strengthen the strong ones, which encourages
+# the breaking of the matrix into clusters.
+f_Inflation <- function(M,r) {
+    R = M**r# Take element-wise power and normalize columns
+    mask = R > 10^-5
+    return(f_Normalize(R*mask))}
+
+```
+
+```{r eval=TRUE}
+
+# Markov Clustering Algorithm:
+# Description at: https://micans.org/mcl/
+f_MCL <- function(G,it,e,r){
+    n = dim(G)[1]
+    # We first add self-loops, to improve convergence.
+    for(i in 1:n){
+      G[i,i] = 1}
+
+    R = f_Normalize(G) # Normalize the columns
+
+    # Alternate the expansion and inflation steps
+    for(i in 1:it){
+      E = f_Expansion(R,e)
+      R = f_Inflation(E,r)
+    }
+    
+    return(R)}
+
+```
+
+```{r eval=TRUE}
+
+A = adj1u
+# MCL1 = f_MCL(A,it=8,e=2,r=3)
+MCL1 = f_MCL(A,it=4,e=2,r=5)
+MCL1 = MCL1 > 10^-10
+
+MCLn1 <- as.network(MCL1, # the network object
+                   directed = FALSE, # specify whether the network is directed
+                   loops = FALSE, # do we allow self ties
+                   matrix.type = "adjacency") # the type of input
+
+plot(MCLn1, vertex.cex = 4*GDP_s, label=network.vertex.names(tn1), vertex.col = s)
+plot(MCLn1, vertex.cex = 6*GDP_s, vertex.col = s)
+
+```
+
+##############################################################################################################################################################################################
+
+Fitting ERGM Models:
+
+```{r eval=TRUE}
+library(ergm)
+
+fit1.er <- ergm(tn1 ~ edges)
+summary(fit1.er)
+t1_sim <- simulate(fit1.er)
+plot(t1_sim)
+
+beta = fit1.er$coef
+print(beta)
+
+prob = exp(beta)/(1+exp(beta))
+print(prob)
+
+fit5.er <- ergm(tn5 ~ edges)
+summary(fit5.er)
+t5_sim <- simulate(fit5.er)
+plot(t5_sim)
+
+beta = fit5.er$coef
+print(beta)
+
+prob = exp(beta)/(1+exp(beta))
+print(prob)
+ 
+```
+
+```{r eval=TRUE}
+
+f_Simulate <- function(model){
+  sim <- simulate(model)
+  GDP_v = 1:50
+  v = sim$val
+  for(i in 1:50){
+    GDP_v[i]=v[[i]]$GDP}
+  plot(sim,vertex.cex = 7*sqrt(GDP_v),vertex.col=s)
+}
+
+```
+
+Fitting for homophily:
+
+```{r eval=TRUE}
+
+fit1.homo <- ergm(tn1 ~ edges + nodematch("Region"))
+summary(fit1.homo)
+
+fit1.homo <- ergm(tn1 ~ edges + absdiff("Population"))
+summary(fit1.homo)
+
+fit1.homo <- ergm(tn1 ~ edges + absdiff("GDP"))
+summary(fit1.homo)
+
+fit1.homo <- ergm(tn1 ~ edges + absdiff("Growth"))
+summary(fit1.homo)
+
+fit1.homo <- ergm(tn1 ~ edges + nodematch("Region") + diff("GDP", dir="t-h") + diff("Growth", dir="t-h")+ diff("Population", dir="t-h"))
+summary(fit1.homo)
+
+f_Simulate(fit1.homo)
+
+fit5.homo <- ergm(tn5 ~ edges + absdiff("GDP"))
+summary(fit5.homo)
+
+fit5.homo <- ergm(tn5 ~ edges + nodematch("Region") + diff("GDP", dir="t-h") + diff("Growth", dir="t-h") + diff("Population", dir="t-h"))
+summary(fit5.homo)
+
+f_Simulate(fit5.homo)
+
+```
+
+```{r eval=TRUE}
+
+fit1.homo <- ergm(tn1 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Growth")+ absdiff("Population"))
+summary(fit1.homo)
+
+f_Simulate(fit1.homo)
+
+fit5.homo <- ergm(tn5 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Growth") + absdiff("Population"))
+summary(fit5.homo)
+
+f_Simulate(fit5.homo)
+
+```
+```{r eval=TRUE}
+
+fit1.homo <- ergm(tn1 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Population") + mutual)
+summary(fit1.homo)
+
+f_Simulate(fit1.homo)
+
+fit5.homo <- ergm(tn5 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Population") + mutual)
+summary(fit5.homo)
+
+f_Simulate(fit5.homo)
+
+```
+
+```{r eval=TRUE}
+
+fit1.diff.homo <- ergm(tn1 ~ edges + nodematch("Region",diff=TRUE,levels=c(2,3,7)) + absdiff("GDP") + absdiff("Population") + mutual)
+summary(fit1.diff.homo)
+
+fit5.diff.homo <- ergm(tn5 ~ edges + nodematch("Region",diff=TRUE,levels=c(2,3,5,7)) + absdiff("GDP") + absdiff("Population") + mutual)
+summary(fit5.diff.homo)
+
+# fit1.mix <- ergm(tn1 ~ nodemix("Region"))
+# summary(fit1.mix)
+#  
+# fit5.mix <- ergm(tn5 ~ nodemix("Region"))
+# summary(fit5.mix)
+
+f_Simulate(fit1.diff.homo)
+
+f_Simulate(fit5.diff.homo)
+ 
+```
+```{r eval=TRUE}
+
+fit1_srm <- ergm(tn1 ~ edges + nodematch("Region") + sender + receiver + mutual)
+summary(fit1_srm)
+
+fit1_srm <- ergm(tn1 ~ edges + nodematch("Region",diff=TRUE) + absdiff("GDP") + absdiff("Growth") + absdiff("Population") + diff("Population") + mutual)
+summary(fit1_srm)
+
+fit5_srm <- ergm(tn5 ~ edges + nodematch("Region",diff=TRUE) + absdiff("GDP") + absdiff("Growth") + absdiff("Population") + diff("Population") + mutual)
+summary(fit5_srm)
+
+f_Simulate(fit1_srm)
+
+f_Simulate(fit5_srm)
+
+```
+
+```{r eval=TRUE}
+
+c_idx = c(9, 16, 18, 49)
+country[ord][c_idx]
+
+# Mutual relations have *** significance
+# China has *** significance as a sender and . as a receiver.
+# Germany has *** significance as a sender and ** as a receiver.
+# US has *** significance as a receiver.
+# India has * significance as a receiver.
+
+```
+```{r eval=TRUE}
+
+fit5_srm <- ergm(tn5 ~ edges + nodematch("Region") + sender + receiver + mutual)
+summary(fit5_srm)
+
+```
+```{r eval=TRUE}
+
+c_idx = c(9, 15, 16, 18, 24, 48, 49)
+# country[ord][c_idx]
+# China, France, Germany, India, Japan, UK, US
+
+# Mutual relations have *** significance
+# China has *** significance as a sender and as a receiver.
+# US has *** significance as a sender and as a receiver.
+# Germany has *** significance as a sender and ** as a receiver.
+# Japan has ** significance as a receiver.
+# UK has ** significance as a receiver.
+# India has * significance as a receiver.
+# France has * significance as a receiver.
+
+```
+```{r eval=TRUE}
+
+fit1_srm <- ergm(tn5 ~ edges + nodematch("Region") + sender(nodes=c(9,16,49)) + receiver(nodes = c(9, 15, 16, 18, 24, 48, 49)) + mutual)
+summary(fit1_srm)
+
+```
+```{r eval=TRUE}
+
+fit1_srm <- ergm(tn1 ~ edges + nodematch("Region") + absdiff("GDP") + sender(nodes=c(9)) + receiver(nodes = c(49)) + mutual)
+summary(fit1_srm)
+
+fit5_srm<- ergm(tn5 ~ edges + nodematch("Region") + absdiff("GDP") + sender(nodes=c(9,16,49)) + receiver(nodes = c(9, 15, 16, 18, 24, 48, 49)) + mutual)
+summary(fit5_srm)
+
+f_Simulate(fit1_srm)
+
+f_Simulate(fit5_srm)
+
+```
+```{r eval=TRUE}
+
+fit1_srm <- ergm(tn1 ~ edges + nodematch("Region") + absdiff("GDP") + sender(nodes=c(9)) + receiver(nodes = c(49)) + mutual + ttriple + dyadcov)
+summary(fit1_srm)
+
+fit5_srm<- ergm(tn5 ~ edges + nodematch("Region") + absdiff("GDP") + sender(nodes=c(9,16,49)) + receiver(nodes = c(9, 15, 16, 18, 24, 48, 49)) + mutual)
+summary(fit5_srm)
+
+f_Simulate(fit1_srm)
+
+f_Simulate(fit5_srm)
+
+```
+
+```{r eval=TRUE}
+
+# fit5_d <- ergm(tn5_d ~ edges + nodematch("Region") + absdiff("GDP") + triadcensus(1:7))
+# summary(fit5_d)
+
+# f_Simulate(fit5_d)
+
+```
+
+```{r eval=TRUE}
+
+# fit_gw <- ergm(tn5 ~ edges + nodematch("Region") + gwesp(0.5,fixed=T))
+# summary(fit)
+
+```
+
+```{r eval=TRUE}
+
+library(ergm.tapered)
+
+fit_tt1 <- ergm.tapered(tn1 ~ edges + ttriple)
+summary(fit_tt1)
+
+fit_tt5 <- ergm.tapered(tn5 ~ edges + ttriple)
+summary(fit_tt5)
+
+fit_tt1_2 <- ergm.tapered(tn1 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Population") + mutual + ttriple)
+summary(fit_tt1_2)
+
+fit_tt5_2 <- ergm.tapered(tn5 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Population") + ttriple)
+summary(fit_tt5_2)
+
+```
+
+```{r eval=TRUE}
+
+fit1_tt <- ergm(tn1 ~ edges + nodematch("Region",diff=TRUE) + absdiff("GDP") + absdiff("Growth") + absdiff("Population") + diff("Population") + mutual)
+summary(fit1_tt)
+
+# fit5_tt <- ergm(tn5 ~ edges + nodematch("Region",diff=TRUE) + absdiff("GDP") + absdiff("Growth") + absdiff("Population") + diff("Population") + ttriple + mutual)
+# summary(fit5_tt)
+# 
+# f_Simulate(fit5_tt)
+
+```
+
+```{r eval=TRUE}
+
+# fit_os <- ergm.tapered(tn5 ~ edges + nodematch("Region") + ostar(1:3))
+# fit_is <- ergm.tapered(tn5 ~ edges + nodematch("Region") + istar(1:3))
+# fit_id <- ergm.tapered(tn5 ~ edges + nodematch("Region") + odegree(1:4))
+# fit_od <- ergm.tapered(tn5 ~ edges + nodematch("Region") + odegree(1:4))
+
+```
+
+```{r eval=TRUE}
+
+# fit_t1 <- ergm.tapered(tn1 ~ edges + nodematch("Region") + triadcensus(1:15))
+# summary(fit_t1)
+
+fit_t1 <- ergm.tapered(tn1 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Population") + mutual + triadcensus(1:15))
+summary(fit_t1)
+
+# fit_t5 <- ergm.tapered(tn5 ~ edges + nodematch("Region") + triadcensus(1:15))
+# summary(fit_t5)
+
+fit_t5 <- ergm.tapered(tn5 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Population") + mutual + triadcensus(1:15))
+summary(fit_t5)
+
+```
+```{r eval=TRUE}
+
+fit_t2 <- ergm.tapered(tn5 ~ edges + nodematch("Region") + triadcensus(8:15))
+summary(fit_t2)
+# Triads: 030T, 201, 120D, 120U, 210, 300
+
+```
+
+```{r eval=TRUE}
+
+fit_t <- ergm.tapered(tn5 ~ edges + nodematch("Region") + triadcensus(c(1,2,5,10,11,12,14,15)))
+summary(fit_t)
+mcmc.diagnostics(fit_t)
+
+```
+```{r eval=TRUE}
+
+fit5_n <- ergm.tapered(tn5 ~ edges + triadcensus(c(1:15)))
+summary(fit5_n)
+mcmc.diagnostics(fit5_n)
+
+f_Simulate(fit5_n)
+
+```
+
+```{r eval=TRUE}
+
+fit5_n <- ergm.tapered(tn5 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Population") + mutual)
+summary(fit5_n)
+
+fit5_n <- ergm.tapered(tn5 ~ edges + nodematch("Region") + absdiff("GDP") + absdiff("Population") + mutual + triadcensus(c(1,5,15)))
+summary(fit5_n)
+mcmc.diagnostics(fit5_n)
+
+f_Simulate(fit5_n)
+
+```
+
+# ```{r eval=TRUE}
+# 
+# fit_f <- ergm.tapered(tn5 ~ edges + nodematch("Region",diff=TRUE) + triadcensus(c(1,5,10)) + sender(nodes=c(9,16,49)) + receiver(nodes = c(9, 15, 16, 18, 24, 48, 49)) + mutual)
+# # nodematch("GDP") + nodematch("Growth") + nodematch("Population")
+# summary(fit_f)
+# mcmc.diagnostics(fit_f)
+# 
+# ```
+
+# Interpretation of the triad census:
+# The statistically significant triads are: 012, 021C, and 201
+
+# Triad 012 is one unidirectional edge in a triangle.
+# Triad 021C is a undirectional two-path.
+# Triad 201 is a bidirectional two-path.
+
+############################################################################################################################################################################################
+
+# Count
+```{r eval=TRUE}
+
+library(ergm.count)
+
+# max(E(g5)$weight)
+fit_c1 <- ergm(tn1 ~ sum, response = "Edge", reference = ~Poisson)
+
+```
+
+
+
+Latent Variable Modeling
+
+```{r eval=TRUE}
+
+library(latentnet)
+
+fit_euc <- ergmm(tn5 ~ euclidean(d=2))
+summary(fit_euc)
+
+region <- tn5  %v% "Region"
+homo_region <- outer(region,region,"==")
+# fit_hr <- ergmm(tn1 ~ latentcov("homo_region") + euclidean(d=2))
+fit_hr <- ergmm(tn5 ~ edgecov(homo_region) + euclidean(d=2) + absdiff("GDP") + absdiff("Population"))
+summary(fit_hr)
+
+sim_euc <- simulate(fit_euc)
+plot(sim_euc,vertex.cex = 7*sqrt(GDP_s),vertex.col=s)
+
+sim_hr <- simulate(fit_hr)
+plot(sim_hr,vertex.cex = 7*sqrt(GDP_s),vertex.col=s)
+
+# f_Simulate(fit_hr)
+
+```
+
