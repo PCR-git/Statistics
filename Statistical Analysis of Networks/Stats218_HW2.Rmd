@@ -1,0 +1,557 @@
+---
+title: "Stats218 HW2"
+author: "Peter Racioppo"
+date: "11/17/2020"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+ library(sna)
+library(network)
+library(networkdata)
+```
+
+1) Mixing within a Classroom: Here we consider a network of strong friendship ties among 13 boys and 14 girls in a sixth-grade classroom, as collected by Hansell (1984). Each student was asked if they liked each other student “a lot”, “some”, or “not much”. Here we consider a strong friendship tie to exist if a student likes another student “a lot.” Also recorded is the sex of each student. The data for the following questions is in the networkdata package.
+```{r eval=TRUE}
+library(networkdata)
+data(hansell)
+help(hansell)
+
+```
+
+---------------------------------------------
+
+a) Plot the network. Based on the plot alone, does there appear to be a general preference for same-sex friendship ties?
+```{r eval=TRUE}
+
+# Record sexes in array s
+v = hansell$val
+s = 1:length(v)*0
+for(i in 1:length(v)){
+        x=v[[i]]
+        if(x$sex == "male"){
+                s[i] = 4
+        }
+        else if(x$sex == "female"){
+                s[i] = "hotpink"
+        }
+        else {
+                s[i] = -1}
+}
+
+plot.network(hansell, vertex.cex = 3,vertex.col = s)
+
+```
+
+Yes, there does appear to be a preference for same-sex friendship ties, as there are clearly-discernible clusters.
+
+---------------------------------------------
+
+b) Fit an Erdos-Rényi model, that is, the homogeneous Bernoulli model, to the network using the ergm command:
+```{r eval=TRUE}
+library(ergm)
+
+fit.er <- ergm(hansell ~ edges)
+# summary(fit.er)
+ 
+```
+
+Compute, based on the output, the MLE of the log-odds of a tie between two randomly chosen students.
+
+```{r eval=TRUE}
+
+beta = fit.er$coef
+print(beta)
+
+```
+
+---------------------------------------------
+
+Compute, based on the output, the MLE of the probability of a tie between two randomly chosen students.
+
+```{r eval=TRUE}
+
+prob = exp(beta)/(1+exp(beta))
+print(prob)
+
+```
+
+---------------------------------------------
+
+How does it compare to the density of ties in the network?
+```{r eval=TRUE}
+
+density = 157/27^2
+print(density)
+print(density/prob)
+
+```
+The MLE of the probability is almost equal to the network density. (The density is 96% of the MLE probability.)
+
+---------------------------------------------
+
+Does the model fit better than the model that says that all networks among these students are equally likely? Quote a statistical test to support your claim.
+
+Yes, the residual deviance for this model is 746.2  on 701 degrees of freedom, which is far better than the null deviance of 973.2 on 702 degrees of freedom.
+
+There are 2^(n^2) = 2^729 ~= 3.5 x 10^-220 possible graphs between these nodes. If each is drawn with equal probability. There are M x (n^2 choose M) graphs with M edges or less, so the chance of observing a density as low as the observed density is about 1.75 × 10^-54. In other words, the model that says that all networks among these students are equally likely is a poor fit.
+
+If the observed graph is drawn from a graph distribution given by the Erdos-Renyi model with MLE probability p, the probability of observing this graph is p^M x (1-p)^((n choose 2)-M), where n = 27 and M = 157, and p = 0.2236467. This comes to 0.2236^157 x 0.7764^194 ~= 3.5 x 10^-124. Thus, the observed graph is about 10^96 times more likely under our Erdos-Renyi model than a model in which every possible graph is equally likely.
+
+---------------------------------------------
+
+c) Fit a model for homophily of ties by sex using the ergm command:
+
+```{r eval=TRUE}
+
+fit.homo <- ergm(hansell~edges + nodematch("sex"))
+summary(fit.homo)
+ 
+```
+
+---------------------------------------------
+
+Based on the output, is there homophily based on sex? Quote a statistical test to support your claim.
+
+Yes. The homophily in this model is 1.2954, which is much larger than the standard error of 0.1979. This model has a residual deviance of 699.1 on 700 degrees of freedom, very close to the expected value of 700 under a Chi-squared distribution. The Erdos-Renyi model has a residual variance of 746.2 on 701 degrees of freedom, which is much worse, although still within a standard deviation of the expected value. The AIC and BIC for this model are both lower than for the Erdos-Renyi model. We can conclude that the model with homophily is a better fit than the Erdos-Renyi model.
+
+---------------------------------------------
+
+Compute, based on the output, the MLE of the log-odds of a tie between two students of the same sex.
+
+```{r eval=TRUE}
+
+beta = fit.homo$coef[1] + fit.homo$coef[2]
+print(beta)
+
+```
+
+The MLE of the log-odds of a tie between two students of the same sex is -0.6887126 .
+
+---------------------------------------------
+
+Compute, based on the output, the MLE of the probability of a tie between two students of the same sex.
+
+```{r eval=TRUE}
+
+prob = exp(beta)/(1+exp(beta))
+print(c("MLE of the probability of a tie between two students of the same sex: ",prob))
+
+```
+
+The MLE of the probability of a tie between two students of the same sex is 0.3343195.
+
+---------------------------------------------
+
+Compute, based on the output, the MLE of the probability of a tie between two students of the opposite sex.
+Does the model fit better than the Erdos-Rényi model? Quote a statistical test to support your claim.
+
+```{r eval=TRUE}
+
+beta = fit.homo$coef[1]
+prob = exp(beta)/(1+exp(beta))
+print(c("MLE of the probability of a tie between two students of the opposite sex: ",prob))
+
+anova(fit.er,fit.homo)
+
+```
+
+The MLE of the probability of a tie between two students of the opposite sex is 0.1208791.
+
+Yes, the model fits better than the Erdos-Renyi model. This model has a residual deviance of 699.1 on 700 degrees of freedom, very close to the expected value of 700 under a Chi-squared distribution. The Erdos-Renyi model has a residual variance of 746.2 on 701 degrees of freedom, which is much worse, although still within a standard deviation of the expected value. The AIC and BIC for this model are both lower than for the Erdos-Renyi model. We can conclude that the model with homophily is a better fit than the Erdos-Renyi model.
+
+The observed tie densities are 0.3736264 female-female, 0.1043956 female=male, 0.1373626 male-female, and 0.2884615 male-male.
+
+Thus, the average tie density for students of the same sex is (0.3736264 x 14 x 13 + 0.2884615 x 13 x 12)/(14 x 13+13 x 12) = 0.3343195, which is identical to the MLE value. The average tie density for students of the opposite sex is (0.1043956+0.1373626)/2 = 0.1208791, which is again identical to the MLE value. The Erdos-Renyi model would underestimate the ties between students of the same sex and overestimate ties between students of opposite sex.
+
+---------------------------------------------
+
+d) Fit a model for differential homophily of ties by sex using the ergm command:
+
+```{r eval=TRUE}
+
+fit.diff.homo <- ergm(hansell~edges + nodematch("sex", diff=TRUE))
+summary(fit.diff.homo)
+
+anova(fit.homo,fit.diff.homo)
+
+```
+
+---------------------------------------------
+
+Based on the output, does the homophily differ between males and females? Quote a statistical test to support your claim.
+
+According to this model, the homophily is 1.4674 for females and 1.0813 for males. The AIC and BIC for this model are both comparable to the model which fits on homophily but not differential homophily. The residual deviance is 699.1 on 700 degrees of freedom for the model with homophily and 696.4 on 699 degrees of freedom for the model with differential homophily, which are also comparable values. Thus, the differential homophily fits prediction of a higher homophily between females than males is not strongly supported by the evidence.
+
+---------------------------------------------
+
+e) Fit a model for full mixing between the two sexes using the ergm command:
+
+```{r eval=TRUE}
+
+fit.mix <- ergm(hansell~nodemix("sex"))
+summary(fit.mix)
+ 
+```
+
+---------------------------------------------
+
+Compute, based on the output, the MLE of the log-odds of a tie from a male to a female student.
+
+```{r eval=TRUE}
+
+beta = fit.mix$coef
+
+```
+
+The MLE of the log-odds of a tie from a male to a female student is -1.8373700.
+
+---------------------------------------------
+
+Compute, based on the output, the MLE of the probability of a tie from a female to a male student.
+
+```{r eval=TRUE}
+beta = fit.mix$coef
+ff_l = -0.5166907
+mf_l = -1.8373700
+fm_l = -2.1493112
+mm_l = -0.9028677
+ff_p = exp(ff_l)/(1+exp(ff_l))
+fm_p = exp(fm_l)/(1+exp(fm_l))
+mf_p = exp(mf_l)/(1+exp(mf_l))
+mm_p = exp(mm_l)/(1+exp(mm_l))
+print(fm_p)
+
+```
+
+The MLE of the probability of a tie from a female to a male student is 0.1043956.
+
+---------------------------------------------
+
+How does this compare to the empirical frequency of such ties?
+
+```{r eval=TRUE}
+# Record sexes in array s
+v = hansell$val
+s1 = 1:length(v)*0
+for(i in 1:length(v)){
+        x=v[[i]]
+        if(x$sex == "male"){
+                s1[i] = 1
+        }
+        else if(x$sex == "female"){
+                s1[i] = -1
+        }
+}
+
+adj = as.matrix.network.adjacency(hansell)
+ff = 0
+fm = 0
+mf = 0
+mm = 0
+for(i in 1:length(v)){
+        for(j in 1:length(v)){
+                if(adj[i,j]==1){
+                        if(s1[i]==-1 && s1[j]==-1){
+                                ff = ff + 1}
+                        if(s1[i]==-1 && s1[j]==1){
+                                fm = fm + 1}
+                        if(s1[i]==1 && s1[j]==-1){
+                                mf = mf + 1}
+                        if(s1[i]==1 && s1[j]==1){
+                                mm = mm + 1}
+                        }
+        }
+}
+total = ff + fm + mf + mm # Equals total number of ties (157)
+
+# Observed densities:
+ff/(14*13)
+fm/(14*13)
+mf/(13*14)
+mm/(13*12)
+
+```
+
+The MLE probabilities of ties are 0.3736264 female-female, 0.1043956 female-male, 0.1373626 male-female, and 0.2884615 male-male.
+
+The observed tie densities are 0.3736264 female-female, 0.1043956 female=male, 0.1373626 male-female, and 0.2884615 male-male, exactly the same. The edge densities are predicted much better than in the other models.
+
+---------------------------------------------
+
+Based on the output, does the full mixing model significantly improve over the other models fit? Quote statistical tests to support your claim.
+
+```{r eval=TRUE}
+
+anova(fit.er,fit.mix)
+anova(fit.homo,fit.mix)
+anova(fit.diff.homo,fit.mix)
+
+```
+
+The residual deviance for the full mixing model is 695.5 on 698 degrees of freedom, which is very close to the expected value of 698 under a Chi-squared distribution. However, this isn't an improvement over the residual deviances for the homophily fits: 699.1 on 700 degrees of freedom for the model with homophily and 696.4 on 699 degrees of freedom for the model with differential homophily. The AIC and BIC for the full mixing model are 703.5 and 721.7, which are actually higher than for the models fit on homophily. Thus, there is not evidence that the full mixing model significantly improves on the other models.
+
+---------------------------------------------
+
+2) Centrality and Prestige with the Holland-Leinhardt p1 model: Here we consider again Hansen’s network of strong friendship ties among 13 boys and 14 girls in a sixth-grade classroom.
+Here we consider a network of strong friendship ties among 13 boys and 14 girls in a sixth- grade classroom, as collected by Hansell (1984). Each student was asked if they liked each other student “a lot”, “some”, or “not much”. Here we consider a strong friendship tie to exist if a student likes another student “a lot.” Also recorded is the sex of each student. The data are in the networkdata package
+
+```{r include=FALSE}
+
+library(networkdata)
+data(hansell)
+help(hansell)
+ 
+```
+
+---------------------------------------------
+
+a) Fit the p1 model using the ergm command:
+
+```{r eval=TRUE}
+
+fit <- ergm(hansell ~ edges + nodematch("sex") + sender + receiver + mutual)
+summary(fit)
+
+```
+
+---------------------------------------------
+
+In this model, does there appear to be a general preference for same-sex friendship ties? Does there appear to be a general preference for mutual friendship ties? Quote statistical tests to support your claims.
+
+Yes, nodematch.sex = 1.83519 and mutual = 0.82465, both of which are greater than zero.
+
+---------------------------------------------
+
+b) We can interpret the sender coefficients as measures of the “centrality” of the actor, and the receiver coefficients as measures of “prestige”.
+Plot the prestige versus the centrality scores for each node (see fit$coef). Find on the plot the top two students in terms of prestige and the top two in terms of centrality. Is their top rank apparent in the figure?
+How correlated are these measures to (Freeman’s) in-degree centrality and out-degree prestige, respectively?
+
+---------------------------------------------
+
+```{r eval=TRUE}
+
+# detach(package:igraph, unload = TRUE)
+library(sna)
+
+sender = fit$coef[3:28]
+receiver = fit$coef[29:54]
+
+p_sender = exp(sender)/(1+exp(sender))
+p_receiver = exp(receiver)/(1+exp(receiver))
+
+indegree = degree(hansell,cmode="indegree")
+outdegree = degree(hansell,cmode="outdegree")
+
+indegree_t = indegree[2:27]
+outdegree_t = outdegree[2:27]
+
+prestige1 = which.max(p_receiver)
+p_receiver2 = p_receiver[-prestige1]
+prestige2 = which.max(p_receiver2)
+if(prestige2 >= prestige1){
+                prestige2 = prestige2 + 1
+        }
+centrality1 = which.max(p_sender)
+p_sender2 = p_sender[-centrality1]
+centrality2 = which.max(p_sender2)
+if(centrality2 >= centrality1){
+                centrality2 = centrality2 + 1
+}
+
+plot(p_sender,p_receiver,main = "Prestige vs Centrality", xlab = "Centrality", ylab = "Prestige")
+lines(p_sender[centrality1],p_receiver[centrality1],pch=4,type="o")
+lines(p_sender[centrality2],p_receiver[centrality2],pch=4,type="o")
+lines(p_sender[prestige1],p_receiver[prestige1],pch=3,type="o")
+lines(p_sender[prestige2],p_receiver[prestige2],pch=3,type="o")
+abline(lm(p_receiver ~ p_sender))
+
+cor1 = cor(outdegree_t,p_sender)
+cor2 = cor(indegree_t,p_receiver)
+
+print(c("Correlation between sender coefficients and out-degree = ", cor1))
+print(c("Correlation between receiver coefficients and in-degree = ", cor2))
+
+```
+
+The two nodes with the highest centrality are indicated with an "x" symbol and the nodes with the highest prestige are indicated with a "+" symbol. The nodes with the highest centrality and prestige are evident on the plot.
+
+These measures are highly correlated with Freeman's in-degree and out-degree centrality measures. The correlation between between sender coefficients and out-degree is 0.97 and the correlation between receiver coefficients and in-degree is 0.99.
+
+---------------------------------------------
+
+c) Consider the typical magnitude of the sender and receiver coefficients. How do they compare in magnitude to the preferences for same-sex or mutual ties?
+
+```{r eval=TRUE}
+
+sex = fit$coef[2]
+mutual = fit$coef[55]
+sender = fit$coef[3:28]
+receiver = fit$coef[29:54]
+
+sender1 = sender
+receiver1 = receiver
+sender1[!is.finite(sender1)] <- NA
+sender1 <- sender1[!is.na(sender1)]
+receiver1[!is.finite(receiver1)] <- NA
+receiver1 <- receiver1[!is.na(receiver1)]
+
+print(c("The mean of the magnitudes of the non-infinite sender nodes is: ", mean(abs(sender1))))
+print(c("The mean of the magnitudes of the non-infinite receiver nodes is: ", mean(abs(receiver1))))
+
+lower = sex - mutual
+upper = sex + mutual
+abs(sender + receiver)
+
+```
+
+nodematch.sex = 1.83519 and mutual = 0.82465
+The means of the magnitudes of the non-infinite sender and receiver nodes are on the same order of magnitude as the same-sex and mutual tie coefficients.
+
+With a few exceptions, the magnitude of the sum of the sender and receiver coefficients appears to be within the range given by the same-sex tie coefficient plus or minus the mutual tie coefficient.
+
+---------------------------------------------
+
+3) Cold war connections: The dataset coldwar contains information on military cooperation and conflict between countries from 1950 through 1985. For this analysis, we will only consider cooperative relations (so all negative relations in the sociomatrix should be set to zero).
+
+```{r eval=TRUE}
+
+library(networkdata)
+data(coldwar)
+
+# coldwar$cc[,,1] - t(coldwar$cc[,,1]) # Check that the matrix is symmetric
+
+# Basic function to create network objects
+f_Network <- function(data,dir,mat_type){
+  net <- as.network(x = data, # the network object
+                 directed = dir, # specify whether the network is directed
+                 loops = FALSE, # do we allow self ties (should not allow them)
+                 matrix.type = mat_type # the type of input
+                    )
+}
+
+library(igraph)
+
+adj = coldwar$cc==1
+cw_ig_1 = graph_from_adjacency_matrix(adj[,,1])
+cw_net_1 = f_Network(adj[,,1],FALSE,"adjacency")
+plot(cw_net_1, vertex.cex = 1)
+
+```
+
+---------------------------------------------
+
+a) For each of the eight years in the dataset, identify and list the countries in the two largest connected components of that year’s cooperation graph. Summarize the results with a few sentences.
+
+```{r eval=TRUE}
+
+f_CC <- function(g){
+        components <- igraph::clusters(g, mode="weak")
+        id1 <- which.max(components$csize)
+        components2 = components$csize[-id1]
+        id2 = which.max(components2)
+        if(id2 >= id1){
+                id2 = id2 + 1
+        }
+        sz1 = components$csize[id1]
+        sz2 = components$csize[id2]
+        vert_ids1 <- V(g)[components$membership == id1]
+        vert_ids2 <- V(g)[components$membership == id2]
+        ig1 = igraph::induced_subgraph(g, vert_ids1)
+        ig2 = igraph::induced_subgraph(g, vert_ids2)
+        return(list(id1,id2,vert_ids1,vert_ids2,ig1,ig2,sz1,sz2))
+}
+
+for(i in 1:8){
+        g = graph_from_adjacency_matrix(adj[,,i])
+        x = f_CC(g)
+        print(c("Year: ",i))
+        print(c("The size of the largest connected component is: ",x[[7]]))
+        print(c("The size of the second largest connected component is: ",x[[8]]))
+        print(c("The countries in the largest connected component are: ",x[[3]]))
+        print(c("The countries in the second largest connected component are: ",x[[4]]))
+}
+
+```
+
+---------------------------------------------
+
+b) From the socioarray of cooperative events, create a relation that indicates whether or not two countries had any cooperative events during the time periods in the dataset. Make a plot of the graph for this relation, describe the connected components and compare and contrast the components with the those in (a).
+
+```{r eval=TRUE}
+
+coop = adj[,,1]
+for(i in 2:8){
+        coop = coop + adj[,,i]
+}
+coop = coop > 0
+
+coop_ig = graph_from_adjacency_matrix(coop)
+coop_net = f_Network(coop,FALSE,"adjacency")
+plot(coop_net, vertex.cex = 1)
+plot.igraph(coop_ig)
+
+x = f_CC(coop_ig)
+
+print(c("The size of the largest connected component is:",x[[7]]))
+print(c("The size of the second largest connected component is:",x[[8]]))
+
+print(c("The countries in the largest connected component are:",x[[3]]))
+print(c("The countries in the second largest connected component are:",x[[4]]))
+
+```
+
+The largest connected component in the combined graph is three times larger than the largest in any single year. This is because it contains the union of all of the connected components. The second largest connected component in the combined graph has only two vertices, which is smaller than in most years. This is because most of the connected vertices have been absorbed into the giant component.
+
+---------------------------------------------
+
+c) Identify a cutpoint of the large connected component in (b) so that its removal generates two components that more or less reflect the groupings you saw in (a). For each of these components, compute the closeness centralities of each node and identify the most central node (in each component separately).
+
+```{r eval=TRUE}
+
+lcc = x[[5]]
+plot(lcc,vertex.size=1,edge.arrow.size=1/10,edge.arrow.width=1/10,edge.width=1)
+lcc2 = delete.vertices(lcc, "EGY")
+plot(lcc2,vertex.size=1,edge.arrow.size=1/10,edge.arrow.width=1/10,edge.width=1)
+
+x = f_CC(lcc2)
+
+print(c("The size of the largest connected component is:",x[[7]]))
+print(c("The size of the second largest connected component is:",x[[8]]))
+
+cc1 = x[[5]]
+cc2 = x[[6]]
+
+print(c("The betweenness centralities for the largest connected component are:",closeness(cc1)))
+print(c("The most central country in the largest connected component is:",which.max(closeness(cc1))))
+
+print(c("The betweenness centralities for the second largest connected component are:",closeness(cc2)))
+print(c("The most central country in the second largest connected component is:",which.max(closeness(cc2))))
+
+```
+
+---------------------------------------------
+
+4) Cold war testing: For the same dataset coldwar from the last question, test the hypothesis that the first military cooperation network (i.e., 1950-1954) follows a simple random graph model (SRG). Do this using the same degree centralization statistic as in the lectures. Note that this network is undirected, rather than directed as in class.
+
+```{r eval=TRUE}
+
+adj = coldwar$cc==1
+cw_net_1 = f_Network(adj[,,1],FALSE,"adjacency")
+plot(cw_net_1, vertex.cex = 1)
+
+```
+
+```{r eval=TRUE}
+
+library(ergm)
+
+fit <- ergm(cw_net_1 ~ edges)
+summary(fit)
+
+```
+
+The residual deviance for the Erdos-Renyi model is 357.5  on 2144  degrees of freedom. In other words, it is very unlikely that the observed dataset was generated by this model. In fact, this model is much worse than the model in which every graph is equally likely. It is also unlikely that this dataset was generated by a model in which every graph is equally likely, since the null deviance is 2973.6 under 2145 degrees of freedom, which is far from the expected value under a chi-squared distribution of 2145.
